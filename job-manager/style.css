@@ -1,0 +1,59 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  padding: 10px;
+}
+
+p,h1,h2,h3,th,td,a {
+    font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
+    font-size: 11px;}
+
+table {
+    width: 500px;
+    background: #fff;
+    text-align: left;
+    border-spacing: 0px;
+    border: 1px solid #aeb3b6;
+    border-collapse: collapse;
+	/*--CSS3 Box Shadows--*/
+	-webkit-box-shadow: 0px 3px 7px #000;
+	-moz-box-shadow: 0px 3px 7px #000;
+	box-shadow: 0px 3px 7px #000;
+
+    
+}
+
+th
+{
+    border-left: 1px solid #aeb3b6;
+    border-right: 1px solid #aeb3b6;
+    border-bottom: 1px solid #aeb3b6;
+    background-color: #99CCCC;
+    text-align: center;
+    height: 10px;
+    vertical-align:center;
+    padding: 5px 5px;
+}
+
+td
+{
+    border-left: 1px solid #aeb3b6;
+    border-right: 1px solid #aeb3b6;
+    border-bottom: 1px solid #aeb3b6;
+    padding: 10px 10px;
+    text-align: center;
+    height: 10px;
+    vertical-align:center;
+    padding: 5px 5px;
+}
+
+td.green {
+    color: green;
+}
+
+p.event {
+    padding-bottom: 10px;
+}
