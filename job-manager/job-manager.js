@@ -50,6 +50,18 @@ $(document).ready(function(){
                         width: 800
                     });
                 });
+              } else if (action == 'view-log') {
+                $.get(
+                    '../di/services/batch/jobs/' + jobId + '/log'
+                    , function(text) {
+                        var txt = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/>$2');
+                        $("<div title='" + jobId + " Log'></div>")
+                        .html("<p>" + txt + "</p>")
+                        .dialog({
+                            width: 500 
+                        });
+                    }
+                    , 'text');
               }
             });
         }

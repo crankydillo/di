@@ -5,8 +5,10 @@
 }
   */
 
-#dialog {
-  /*border: 1px solid black*/
+.ui-dialog-titlebar {
+  color: #000;
+  background: #eee;
+  font-size: 14px;
 }
 
 body {
