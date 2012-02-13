@@ -1,6 +1,12 @@
+/*
 * {
   margin: 0;
   padding: 0;
+}
+  */
+
+#dialog {
+  /*border: 1px solid black*/
 }
 
 body {
@@ -12,7 +18,7 @@ p,h1,h2,h3,th,td,a {
     font-size: 11px;}
 
 table {
-    width: 500px;
+    width: 600px;
     background: #fff;
     text-align: left;
     border-spacing: 0px;

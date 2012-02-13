@@ -82,16 +82,37 @@ $(document).ready(function(){
     client = Stomp.client(url);
     console.log("Connecting");
     client.connect(login, passcode, onconnect);
+
+    $("#click").click(function() {
+        $(function(){
+            // jQuery UI Dialog
+            $("<div title='Events'><p>Event1</p></div>").dialog();
+        });
+    });
+
     
 });
 
 function jobEventToRow(jobEvent, intervalId) {
     var jobId = jobEvent.jobEvent.jobId;
+    // assert eventName == 'JOB_QUEUED'
+    var startDate = new Date(parseInt(jobEvent.jobEvent.timeStamp));
     return "<tr id=\"" + jobId + "\">" +
+            "<td>" + formatTime(startDate) + "</td>" +
             "<td>" + jobId + "</td>" +
             "<td id='status'>" + jobEvent.jobEvent.eventName + "</td>" +
             "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
             "</tr>"
+}
+
+function formatTime(date) {
+    return pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + 
+        pad2(date.getSeconds());
+}
+
+function pad2(value) {
+    if (value < 10) return "0" + value;
+    else return value + "";
 }
 
 function updateDuration(jobId) {
@@ -118,4 +139,5 @@ function updateDuration(jobId) {
 
     inc("secs", "mins");
 }
+
 
