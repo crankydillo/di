@@ -13,9 +13,15 @@ body {
   padding: 10px;
 }
 
-p,h1,h2,h3,th,td,a {
+h1 {
     font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
-    font-size: 11px;}
+    font-size: 16px;
+}
+
+p,h2,h3,th,td,a {
+    font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
+    font-size: 11px;
+}
 
 table {
     width: 600px;
@@ -37,7 +43,7 @@ th
     border-left: 1px solid #aeb3b6;
     border-right: 1px solid #aeb3b6;
     border-bottom: 1px solid #aeb3b6;
-    background-color: #99CCCC;
+    background-color: #ddd;
     text-align: center;
     height: 10px;
     vertical-align:center;
@@ -61,5 +67,5 @@ td.green {
 }
 
 p.event {
-    padding-bottom: 10px;
+    padding-bottom: 3px;
 }

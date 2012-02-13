@@ -31,7 +31,7 @@ $(document).ready(function(){
                 statuss = eventName;
             $('#' + jobId).find('#status').text(statuss);
             if (eventName == "JOB_ENDED")
-                clearInterval($('#' + jobId).find("td")[2].id);
+                clearInterval($('#' + jobId).find("td")[3].id);
         } else {
             var intervalId = setInterval(function() {
                 updateDuration(jobId);
@@ -40,17 +40,16 @@ $(document).ready(function(){
             $('#' + jobId).contextMenu({
               menu: 'myMenu'
               }, function(action, el, pos) {
-                /*
-              alert(
-              'Action: ' + action + '\n\n' +
-              'Element text: ' + $(el).text() + '\n\n' + 
-              'Job ID: ' + jobId
-              );
-              */
               if (action == 'view-events') {
                 var events = $('.events');
                 var jobEvents = events.find('#' +  jobId + '_events');
-                jobEvents.show();
+                $(function(){
+                    $("<div title='" + jobId + " Events'></div>")
+                    .html(jobEvents.html())
+                    .dialog({
+                        width: 800
+                    });
+                });
               }
             });
         }
@@ -63,14 +62,8 @@ $(document).ready(function(){
           jobEvents.append("<p class='event'>" + message.body + "</p>");
         } else {
           events.append("<div id='" + jobEventsId + "' style='display: none'>" +
-              "<h2>Job Events for " + jobId + " (<a href='#f' id='" + jobId + "_hide'>hide</a>)</h2><br/>" + 
               "<p class='event'>" + message.body + "</p></div>");
-          $('#' + jobId + '_hide').click(function() {
-            $('.events').find('#' + jobEventsId).hide();
-          });
         }
-
-
       });
     };
     
@@ -85,8 +78,9 @@ $(document).ready(function(){
 
     $("#click").click(function() {
         $(function(){
-            // jQuery UI Dialog
-            $("<div title='Events'><p>Event1</p></div>").dialog();
+            $("<div title='Events'><p>Event1</p></div>").dialog({
+                width: 800 
+                });
         });
     });
 
@@ -139,5 +133,3 @@ function updateDuration(jobId) {
 
     inc("secs", "mins");
 }
-
-
