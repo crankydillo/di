@@ -7,6 +7,7 @@ $(document).ready(function(){
         }
         , 'jsonp');
         */
+    addExistingJobs();
 
     var client, destination;
 
@@ -23,63 +24,32 @@ $(document).ready(function(){
         var jobEvent = JSON.parse(message.body);
         var jobId = jobEvent.jobEvent.jobId;
         if ($('#' + jobId).length) {
-            var eventName = jobEvent.jobEvent.eventName;
-            var statuss;
-            if (eventName == "PROCESS_STATUS")
-                statuss = "STEP: " + jobEvent.jobEvent.data.name;
-            else
-                statuss = eventName;
-            $('#' + jobId).find('#status').text(statuss);
-            if (eventName == "JOB_ENDED")
-                clearInterval($('#' + jobId).find("td")[3].id);
+          if ("JOB_ENDED" === jobEvent.jobEvent.eventName)
+            removeJob(jobId);
+          else 
+            updateJob(jobEvent);
         } else {
-            var intervalId = setInterval(function() {
-                updateDuration(jobId);
-            }, 1000);
-            $('.jobs').append(jobEventToRow(jobEvent, intervalId));
-            $('#' + jobId).contextMenu({
-              menu: 'myMenu'
-              }, function(action, el, pos) {
-              if (action == 'view-events') {
-                var events = $('.events');
-                var jobEvents = events.find('#' +  jobId + '_events');
-                $(function(){
-                    $("<div title='" + jobId + " Events'></div>")
-                    .html(jobEvents.html())
-                    .dialog({
-                        width: 800
-                    });
-                });
-              } else if (action == 'view-log') {
-                $.get(
-                    '../di/services/batch/jobs/' + jobId + '/log'
-                    , function(text) {
-                        var txt = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/>$2');
-                        $("<div title='" + jobId + " Log'></div>")
-                        .html("<p>" + txt + "</p>")
-                        .dialog({
-                            width: 500 
-                        });
-                    }
-                    , 'text');
-              }
-            });
+          addJob(jobId, new Date(parseInt(jobEvent.jobEvent.timeStamp)), 
+              jobEvent.jobEvent.eventName);
         }
 
-        var jobEventsId = jobId + '_events';
+        var eventsId = jobEventsId(jobId);
         var events = $('.events');
-        var jobEvents = $('.events').find('#' +  jobEventsId);
+        var jobEvents = $('.events').find('#' +  eventsId);
         if (jobEvents.length) {
           console.log("Adding job event");
           jobEvents.append("<p class='event'>" + message.body + "</p>");
         } else {
-          events.append("<div id='" + jobEventsId + "' style='display: none'>" +
+          events.append("<div id='" + eventsId + "' style='display: none'>" +
               "<p class='event'>" + message.body + "</p></div>");
         }
       });
     };
-    
-    var url = 'ws://localhost:61614/stomp';
+   
+    //var host = window.location.host; 
+    var host = "localhost"
+    console.log("host: " + host);
+    var url = 'ws://' + host + ':61614/stomp';
     var login = 'guest';
     var passcode = 'guest';
     destination = '/topic/pervasive.job.event.topic1';
@@ -87,17 +57,95 @@ $(document).ready(function(){
     client = Stomp.client(url);
     console.log("Connecting");
     client.connect(login, passcode, onconnect);
-
-    $("#click").click(function() {
-        $(function(){
-            $("<div title='Events'><p>Event1</p></div>").dialog({
-                width: 800 
-                });
-        });
-    });
-
-    
 });
+
+function removeJob(jobId) {
+  $('#' + jobId).remove();
+  $('#' + jobEventsId(jobId)).remove();
+}
+
+function jobEventsId(jobId) {
+  return jobId + '_events';
+}
+
+// Add RUNNING or QUEUED jobs by querying the service (not through Stomp events)
+function addExistingJobs() {
+
+    function getJobs(statuss) {
+        $.get('../di/services/batch/jobs?verbose=true&status=' + statuss
+                , function(xml) {
+                    $('job', xml).each(function(i) {
+                        jobHref = $(this).attr("xlink:href");
+                        jobId = jobHref.split("/").pop();
+                        startDate = new Date($(this).find("submissionDate").text());
+                        addJob(jobId, startDate, statuss);
+                    });
+                }
+                , 'xml');
+    }
+
+    getJobs("QUEUED");
+    getJobs("RUNNING");
+}
+
+function addJob(jobId, startDate, eventName) {
+    var intervalId = setInterval(function() {
+        updateDuration(jobId);
+    }, 1000);
+    addJobRow(jobId, startDate, eventName, intervalId);
+    $('#' + jobId).contextMenu({
+        menu: 'myMenu'
+    }, function(action, el, pos) {
+        if (action == 'view-events') {
+            var events = $('.events');
+            var jobEvents = events.find('#' +  jobEventsId(jobId));
+            $(function(){
+                //$("<div title='" + jobId + " Events'></div>")
+                //.html(jobEvents.html())
+                jobEvents
+                .dialog({
+                    width: 800
+                });
+            });
+        } else if (action == 'view-log') {
+            $.get(
+                '../di/services/batch/jobs/' + jobId + '/log'
+                , function(text) {
+                    var txt = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/>$2');
+                    $("<div title='" + jobId + " Log'></div>")
+                .html("<p>" + txt + "</p>")
+                .dialog({
+                    width: 500 
+                });
+                }
+                , 'text');
+        }
+    });
+}
+
+function addJobRow(jobId, startDate, eventName, intervalId) {
+    // assert eventName == 'JOB_QUEUED'
+    $('.jobs').append(
+            "<tr id=\"" + jobId + "\">" +
+                "<td>" + formatTime(startDate) + "</td>" +
+                "<td>" + jobId + "</td>" +
+                "<td id='status'>" + eventName + "</td>" +
+                "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
+            "</tr>");
+}
+
+function updateJob(jobEvent) {
+    var jobId = jobEvent.jobEvent.jobId;
+    var eventName = jobEvent.jobEvent.eventName;
+    var statuss;
+    if (eventName == "PROCESS_STATUS")
+        statuss = "STEP: " + jobEvent.jobEvent.data.name;
+    else
+        statuss = eventName;
+    $('#' + jobId).find('#status').text(statuss);
+    if (eventName == "JOB_ENDED")
+        clearInterval($('#' + jobId).find("td")[3].id);
+}
 
 function jobEventToRow(jobEvent, intervalId) {
     var jobId = jobEvent.jobEvent.jobId;
@@ -112,15 +160,17 @@ function jobEventToRow(jobEvent, intervalId) {
 }
 
 function formatTime(date) {
+    function pad2(value) {
+        if (value < 10) return "0" + value;
+        else return value + "";
+    }
+
     return pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + 
         pad2(date.getSeconds());
 }
 
-function pad2(value) {
-    if (value < 10) return "0" + value;
-    else return value + "";
-}
 
+// chronograph helper thing
 function updateDuration(jobId) {
 
     function inc(curr, next) {
