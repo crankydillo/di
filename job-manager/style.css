@@ -1,49 +1,174 @@
+nav { 
+  /*
+  position:relative; 
+  background-color:#ccccff; 
+  */
+  font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
+  text-align: center;
+}
+
 /*
+#tabs {
+  background-color: #fff;
+  min-height:100px;
+  height:auto;
+  height:100px; 
+}
+
+#tabs li .tabClose {
+  position: absolute;
+  left: .5em; 
+  top: 50%; 
+  margin-top: -8px;
+}
+  */
+
+#tabs li .ui-icon-close { 
+  float: left; 
+  margin: 0.4em 0.2em 0 0; 
+  cursor: pointer; 
+}
+
+.menu {
+  font-size: 32px;
+}
+
+nav ul {
+  margin: 0.5em;
+  padding: 0;
+  list-style-type: none;
+}
+
+nav li { 
+  display: inline;
+  padding: 2px 75px 2px 25px;
+  font-size: 35px;
+}
+
+nav a { 
+  text-decoration: none;
+  display: inline-block;
+}
+
+.box {
+  /*
+  background-color: #fff;
+  */
+  margin: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+body {
+  background: #eee;
+  padding: 5px;
+  max-width: 800px;
+  margin:0 auto;
+}
+
+/*
+nav li { position:relative; float:left; list-style-type:none; }
 * {
   margin: 0;
   padding: 0;
 }
-  */
 
 .ui-dialog-titlebar {
   color: #000;
   background: #eee;
   font-size: 14px;
 }
-
-body {
-  padding: 10px;
-}
+  */
 
 h1 {
     font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
-    font-size: 16px;
 }
 
-p,h2,h3,th,td,a {
-    font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
-    font-size: 11px;
+p,h2,h3,th,td {
+  font-family: 'Helvetica Neue', Helvetica, Verdana, Arial, sans-serif;
 }
 
-table {
-    width: 600px;
-    background: #fff;
-    text-align: left;
-    border-spacing: 0px;
-    border: 1px solid #aeb3b6;
-    border-collapse: collapse;
-	/*--CSS3 Box Shadows--*/
-	-webkit-box-shadow: 0px 3px 7px #000;
-	-moz-box-shadow: 0px 3px 7px #000;
-	box-shadow: 0px 3px 7px #000;
-
-    
+table.pair {
+  width: 100%;
+  border-spacing: 25px 25px;
+  font-size: 40px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-th
-{
+td.pair {
+  padding: 2px 25px 2px 25px;
+}
+
+.metrics-left {
+  padding-left: 50px;
+  width: 40%;
+  float: left;
+}
+
+.metrics-right {
+  padding-right: 50px;
+  width: 40%;
+  float: right;
+}
+
+.metric {
+  padding-top: 25px;
+  padding-bottom: 25px;
+  /*
+  padding: 25px 5px 25px 5px;
+  */
+  width: 100%;
+}
+
+.mvalue {
+  font-size: 40px;
+  display: inline-block;
+  width: 60%;
+  text-align: right;
+}
+
+.vert-num {
+  /*
+  padding-right: 100px;
+  */
+  text-align: right;
+}
+
+aside.article {
+}
+aside.pair {
+}
+
+.content {
+  min-height:800px;
+  height:auto;
+  height:800px; 
+}
+
+table.tabl {
+  width: 100%;
+  font-size: 22px;
+  background: #fff;
+  text-align: left;
+  border-spacing: 0px;
+  /*
+  border: 1px solid #aeb3b6;
+  */
+  border-collapse: collapse;
+  /*
+  --CSS3 Box Shadows--
+  -webkit-box-shadow: 0px 3px 7px #000;
+  -moz-box-shadow: 0px 3px 7px #000;
+  box-shadow: 0px 3px 7px #000;
+  */
+}
+
+table.tabl th {
+  /*
     border-left: 1px solid #aeb3b6;
     border-right: 1px solid #aeb3b6;
+    */
     border-bottom: 1px solid #aeb3b6;
     background-color: #ddd;
     text-align: center;
@@ -52,21 +177,24 @@ th
     padding: 5px 5px;
 }
 
-td
-{
+.tabClose {
+  padding: 0px 15px 5px 30px;
+  text-align: right;
+  margin: 0;
+}
+
+table.tabl td {
+  /*
     border-left: 1px solid #aeb3b6;
     border-right: 1px solid #aeb3b6;
+    */
     border-bottom: 1px solid #aeb3b6;
     padding: 10px 10px;
     text-align: center;
     height: 10px;
     vertical-align:center;
-    padding: 5px 5px;
 }
 
-td.green {
-    color: green;
-}
 
 p.event {
     padding-bottom: 3px;

@@ -46,8 +46,8 @@ $(document).ready(function(){
       });
     };
    
-    //var host = window.location.host; 
-    var host = "localhost"
+    var host = window.location.host; 
+    //var host = "localhost"
     console.log("host: " + host);
     var url = 'ws://' + host + ':61614/stomp';
     var login = 'guest';
@@ -88,6 +88,38 @@ function addExistingJobs() {
     getJobs("RUNNING");
 }
 
+function addLogTab(jobId) {
+  addTab(logTabId(jobId), "Log", getLog(jobId));
+}
+
+function logTabId(jobId) {
+  return "tl_" + jobId;
+}
+
+// Retrieve the job log from the server
+function getLog(jobId) {
+  var res = null;
+  $.ajax({
+    url: '../di/services/batch/jobs/' + jobId + '/log'
+    , type: "get"
+    , async: true
+    , success: function(text) {
+      res = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/>$2');
+    }, error: function(jqHXR, respCode, errorThrown) {
+      res = "Unable to retrieve log.";
+    }
+  });
+  return res;
+}
+
+// snabbed from jquery tabs site
+function addTab(tab_id, tab_title, content) {
+  $("#tabs").tabs("add", "#" + tab_id, tab_title );
+  $("#tabs").append("<div id='" + tab_id + "' class='content'>" +
+      content + 
+      "</div>");
+}
+
 function addJob(jobId, startDate, eventName) {
     var intervalId = setInterval(function() {
         updateDuration(jobId);
@@ -123,14 +155,31 @@ function addJob(jobId, startDate, eventName) {
     });
 }
 
+function addLogRow(jobId, startDate, endDate, status) {
+  var id = "rep_" + jobId;
+  var row = $(
+    "<tr>" +
+      "<td><a href='#" + id + "'>" + jobId + "</td>" +
+      "<td>" + formatTime(startDate) + "</td>" +
+      "<td>" + formatTime(endDate) + "</td>" +
+      "<td>" + status + "</td>" +
+    "</tr>"
+    ).click( function() {
+      addLogTab(jobId);
+      $("#tabs").tabs('select', logTabId(jobId));
+    });
+
+  $('#report').append(row);
+}
+
 function addJobRow(jobId, startDate, eventName, intervalId) {
     // assert eventName == 'JOB_QUEUED'
-    $('.jobs').append(
+    $('#jobs').append(
             "<tr id=\"" + jobId + "\">" +
-                "<td>" + formatTime(startDate) + "</td>" +
                 "<td>" + jobId + "</td>" +
-                "<td id='status'>" + eventName + "</td>" +
+                //"<td>" + formatTime(startDate) + "</td>" +
                 "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
+                "<td id='status'>" + eventName + "</td>" +
             "</tr>");
 }
 
