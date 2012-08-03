@@ -141,9 +141,11 @@ aside.pair {
 }
 
 .content {
-  min-height:800px;
-  height:auto;
-  height:800px; 
+  padding: 5px 5px 5px 5px;
+  min-height:1500px;
+  /*
+    height:auto;
+    */
 }
 
 table.tabl {

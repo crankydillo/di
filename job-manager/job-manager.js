@@ -7,7 +7,17 @@ $(document).ready(function(){
         }
         , 'jsonp');
         */
-    addExistingJobs();
+
+  var supported = ("WebSocket" in window);
+  if(!supported) {
+    var msg = "Your browser does not support Web Sockets. This example will not work properly.<br>";
+    msg += "Please use a Web Browser with Web Sockets support (WebKit or Google Chrome).";
+    $("#connect").html(msg);
+  }    
+
+  getJobs();
+
+    //addExistingJobs();
 
     var client, destination;
 
@@ -34,14 +44,16 @@ $(document).ready(function(){
         }
 
         var eventsId = jobEventsId(jobId);
-        var events = $('.events');
-        var jobEvents = $('.events').find('#' +  eventsId);
+        console.log(eventsId);
+        var jobEvents = $('#' +  eventsId);
         if (jobEvents.length) {
           console.log("Adding job event");
           jobEvents.append("<p class='event'>" + message.body + "</p>");
         } else {
+          /*
           events.append("<div id='" + eventsId + "' style='display: none'>" +
               "<p class='event'>" + message.body + "</p></div>");
+              */
         }
       });
     };
@@ -61,35 +73,74 @@ $(document).ready(function(){
 
 function removeJob(jobId) {
   $('#' + jobId).remove();
-  $('#' + jobEventsId(jobId)).remove();
+  //$('#' + jobEventsId(jobId)).remove();
 }
 
 function jobEventsId(jobId) {
   return jobId + '_events';
 }
 
-// Add RUNNING or QUEUED jobs by querying the service (not through Stomp events)
-function addExistingJobs() {
+function parseIsoToDate(str) {
+  var arr = str.split('T');
+  var date_part = arr[0];
+  var time_part = arr[1];
+  var offset;
+  var time_arr;
+  if (time_part.indexOf('-') === -1) {
+    time_arr = time_part.split('+');
+    offset = "+" + time_arr[1].replace(":", "");
+  } else {
+    time_arr = time_part.split('-');
+    offset = "-" + time_arr[1].replace(":", "");
+  }
 
-    function getJobs(statuss) {
-        $.get('../di/services/batch/jobs?verbose=true&status=' + statuss
-                , function(xml) {
-                    $('job', xml).each(function(i) {
-                        jobHref = $(this).attr("xlink:href");
-                        jobId = jobHref.split("/").pop();
-                        startDate = new Date($(this).find("submissionDate").text());
-                        addJob(jobId, startDate, statuss);
-                    });
-                }
-                , 'xml');
-    }
+  var time_without_millis = time_arr[0].substr(0, time_arr[0].length - 4);
+  var to_parse = date_part + " " + time_without_millis + offset;
+  return Date.parse(to_parse);
+}
 
-    getJobs("QUEUED");
-    getJobs("RUNNING");
+function getJobs() {
+  $.get('../di/services/batch/jobs?verbose=true&last=86400'
+      , function(xml) { 
+        var fst = 0;
+        $('job', xml).each(function(i) {
+          var job_href = $(this).attr("xlink:href");
+          var job_id = job_href.split("/").pop();
+
+          /* Why doesn't this work?
+          var ths = $(this);
+          var f = function(field) { ths.find(field).text() }
+          var dt = function(field) { new Date(f(field)) }
+          */
+          
+          var job_id = job_href.split("/").pop();
+
+          var start_date = parseIsoToDate($(this).find("submissionDate").text());
+
+          var end_date;
+          var maybe_end_date = $(this).find("endDate");
+          if (maybe_end_date.length)
+            end_date = parseIsoToDate(maybe_end_date.text());
+
+          var statuss = $(this).find("status").text();
+          
+          if (typeof end_date === "undefined") {
+            addJob(job_id, start_date, statuss);
+          } else {
+            addLogRow(job_id, start_date, end_date, statuss);
+          }
+        });
+        return xml 
+      }, 'xml');
 }
 
 function addLogTab(jobId) {
-  addTab(logTabId(jobId), "Log", getLog(jobId));
+  addTab(
+      logTabId(jobId)
+      , "Log"
+      , getLog(jobId)
+      , "Log for " + jobId
+      );
 }
 
 function logTabId(jobId) {
@@ -102,22 +153,33 @@ function getLog(jobId) {
   $.ajax({
     url: '../di/services/batch/jobs/' + jobId + '/log'
     , type: "get"
-    , async: true
+    , async: false
     , success: function(text) {
-      res = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/>$2');
+      res = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/><br/>$2');
     }, error: function(jqHXR, respCode, errorThrown) {
-      res = "Unable to retrieve log.";
+      res = noLogLog();
     }
   });
   return res;
 }
 
+function noLogLog() {
+  var msg = "";
+  for (var i = 0; i < 1000; i++) {
+    msg += "Unable to retrieve log.<br/>";
+  }
+  return msg;
+}
+
 // snabbed from jquery tabs site
-function addTab(tab_id, tab_title, content) {
-  $("#tabs").tabs("add", "#" + tab_id, tab_title );
-  $("#tabs").append("<div id='" + tab_id + "' class='content'>" +
-      content + 
-      "</div>");
+function addTab(tab_id, tab_title, content, header) {
+  var container = $("<div id='" + tab_id + "_c' class='content'/>");
+  container.html(content);
+  if (typeof header !== "undefined") {
+    container.prepend("<h3>" + header + "</h3>");
+  }
+  $("#dtabc").append(container);
+  $("#tabs").tabs("add", "#" + tab_id, tab_title);
 }
 
 function addJob(jobId, startDate, eventName) {
@@ -125,34 +187,6 @@ function addJob(jobId, startDate, eventName) {
         updateDuration(jobId);
     }, 1000);
     addJobRow(jobId, startDate, eventName, intervalId);
-    $('#' + jobId).contextMenu({
-        menu: 'myMenu'
-    }, function(action, el, pos) {
-        if (action == 'view-events') {
-            var events = $('.events');
-            var jobEvents = events.find('#' +  jobEventsId(jobId));
-            $(function(){
-                //$("<div title='" + jobId + " Events'></div>")
-                //.html(jobEvents.html())
-                jobEvents
-                .dialog({
-                    width: 800
-                });
-            });
-        } else if (action == 'view-log') {
-            $.get(
-                '../di/services/batch/jobs/' + jobId + '/log'
-                , function(text) {
-                    var txt = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/>$2');
-                    $("<div title='" + jobId + " Log'></div>")
-                .html("<p>" + txt + "</p>")
-                .dialog({
-                    width: 500 
-                });
-                }
-                , 'text');
-        }
-    });
 }
 
 function addLogRow(jobId, startDate, endDate, status) {
@@ -173,14 +207,28 @@ function addLogRow(jobId, startDate, endDate, status) {
 }
 
 function addJobRow(jobId, startDate, eventName, intervalId) {
-    // assert eventName == 'JOB_QUEUED'
-    $('#jobs').append(
-            "<tr id=\"" + jobId + "\">" +
-                "<td>" + jobId + "</td>" +
-                //"<td>" + formatTime(startDate) + "</td>" +
-                "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
-                "<td id='status'>" + eventName + "</td>" +
-            "</tr>");
+  var row = $(
+      "<tr id=\"" + jobId + "\">" +
+      "<td>" + jobId + "</td>" +
+      "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
+      "<td id='status'>" + eventName + "</td>" +
+      "</tr>"
+    ).click( function() {
+      addJobTab(jobId);
+      $("#tabs").tabs('select', jobTabId(jobId));
+    });
+
+  $('#jobs').append(row);
+}
+
+function addJobTab(jobId) {
+  var eventsId = jobEventsId(jobId);
+  var jobEvents = $("<div id='" + eventsId + "'/>");
+  addTab(jobTabId(jobId), "Job", jobEvents);
+}
+
+function jobTabId(jobId) {
+  return "tj_" + jobId;
 }
 
 function updateJob(jobEvent) {

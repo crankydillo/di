@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css" />
     <script src='http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js'></script>
     <script src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.17/jquery-ui.js'></script>
+    <script src='date.js'></script>
     <!--
     <script src="http://code.jquery.com/ui/1.8.22/jquery-ui.min.js" type="text/javascript"></script>
     -->
@@ -24,23 +25,40 @@
           $("#connect").html(msg);
         }    
 
+        //getJobs();
+        /*
         addLogRow("123", new Date(), new Date(), "huh");
         addLogRow("abc", new Date(), new Date(), "huh");
+        */
       });
+
+
+      function contentFn(cnt) {
+        return cnt;
+      }
 
       $(function() {
         $( "#tabs" ).tabs({
           tabTemplate: "<li><a href='#{href}'>#{label}</a><span class='tabClose ui-icon-close'>x</span></li>"
+          , "add": function(event, ui) {
+            $(ui.panel).append($("#dtabc").children());
+            window.scrollTo(0, 1);
+          }, "remove": function(event, ui) {
+            $(ui.panel).empty();
+            var tid = $(ui.panel).attr("id");
+            $('#' + tid + "_c").remove();
+          }
         });
 
-        $( "#tabs span.ui-icon-close" ).live( "click", function() {
+        $( "#tabs span.ui-icon-close" ).live( "click", function(event, ui) {
           var index = $( "li", $("#tabs") ).index( $( this ).parent() );
           $("#tabs").tabs( "remove", index );
         });
       });
 
-      $('body').scrollTop(1);
-
+      setTimeout(function () {
+        window.scrollTo(0, 1);
+      }, 1000);
     </script>
   </head>
   <body>
@@ -92,7 +110,6 @@
         </table>
       </div>
     </div>
-    <div class="events"/>
-    <div id="reports"/>
+    <div id="dtabc"/>
   </body>
 </html>
