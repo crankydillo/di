@@ -3,44 +3,37 @@
   <head>
     <title>Mobile Integration Manager</title>
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <link href="jquery.contextMenu.css" rel="stylesheet" type="text/css" />
     <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.17/themes/base/jquery-ui.css" type="text/css" media="all" />
     <link rel="stylesheet" href="style.css" />
     <script src='http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js'></script>
     <script src='http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.17/jquery-ui.js'></script>
     <script src='date.js'></script>
+    <script src='beautify.js'></script>
+    <script src='json2.js'></script>
     <!--
     <script src="http://code.jquery.com/ui/1.8.22/jquery-ui.min.js" type="text/javascript"></script>
     -->
     <script src='stomp.js'></script>
     <script src='job-manager.js'></script>
-    <script src="jquery.contextMenu.js" type="text/javascript"></script>
-    <script type="application/x-javascript">window.scrollTo(0,0)</script> 
+    <script src="jquery.contextmenu.r2.js" type="text/javascript"></script>
     <script>
+      /*
       $(document).ready(function() {
-        var supported = ("WebSocket" in window);
-        if(!supported) {
-          var msg = "Your browser does not support Web Sockets. This example will not work properly.<br>";
-          msg += "Please use a Web Browser with Web Sockets support (WebKit or Google Chrome).";
-          $("#connect").html(msg);
-        }    
-
-        //getJobs();
-        /*
-        addLogRow("123", new Date(), new Date(), "huh");
-        addLogRow("abc", new Date(), new Date(), "huh");
-        */
+        addLogRow("123", new Date(), new Date(), "FINISHED_OK");
+        addLogRow("abc", new Date(), new Date(), "FINISHED_ERROR");
       });
+      */
 
-
-      function contentFn(cnt) {
-        return cnt;
+      function closeTab(idx) {
+        $('#tabs').tabs('remove', idx);
       }
+
 
       $(function() {
         $( "#tabs" ).tabs({
-          tabTemplate: "<li><a href='#{href}'>#{label}</a><span class='tabClose ui-icon-close'>x</span></li>"
+          tabTemplate: "<li><a href='#{href}'>#{label}</a>" //<span class='tabClose ui-icon-close'>x</span></li>"
           , "add": function(event, ui) {
+            $(ui.panel).append("<div style='float:right;'><a style='text-decoration:none; font-size:50px' href='#ccc' onclick='closeTab(" + ui.index + ");'>X</a></p>");
             $(ui.panel).append($("#dtabc").children());
             window.scrollTo(0, 1);
           }, "remove": function(event, ui) {
@@ -62,47 +55,72 @@
     </script>
   </head>
   <body>
+      <div id='jmenu' class='contextMenu'>
+        <ul>
+          <li id='all'>All</li>
+          <li id='running'>Running</li>
+          <li id='queued'>Queued</li>
+        </ul>
+      </div>
+
+      <div id='rmenu' class='contextMenu'>
+        <ul>
+          <li id='all'>All</li>
+          <li id='successful'>Successful</li>
+          <li id='failed'>Failed</li>
+        </ul>
+      </div>
+
+
     <div id="tabs">
       <ul class="menu">
         <li><a href="#t1">Overview</a></li>
         <li><a href="#t2">Manager</a></li>
-        <li><a id="reportTab" href="#t3">Reports</a></li>
+        <li><a href="#t3">Reports</a></li>
       </ul>
-        <div id="t1" class="content">
+      <div id="t1" class="content">
+        <div class='metrics'>
           <div class="metrics-left">
-          <div class='metric'>
-            <span class='mlabel'><img width='60' height='60' src="images/completed.png"></span>
-            <span class="mvalue">1235</span>
+            <div id='succ-metric' class='metric'>
+              <span class='mlabel'><img width='60' height='60' src="images/completed.png"></span>
+              <span class="mvalue"><a id='cm-anch' href='#huh'></a></span>
+            </div>
+            <div id='fail-metric' class='metric'>
+              <span class='mlabel'><img width='60' height='60' src="images/failed.png"></span>
+              <span class="mvalue"><a id='fm-anch' href='#huh'></a></span>
+            </div>
           </div>
-          <div class='metric'>
-            <span class='mlabel'><img width='60' height='60' src="images/failed.png">
-            <span class="mvalue">232</span>
-          </div>
-        </div>
-        <div class="metrics-right">
-          <div class='metric'>
-            <span class='mlabel'><img width='60' height='60' src="images/running.png"/></span>
-            <span class='mvalue'>223</span>
-          </div>
-          <div class='metric'>
-            <span class='mlabel'><img width='60' height='60' src="images/queued.png">
-            <span class="mvalue">23232</span>
+          <div class="metrics-right">
+            <div id='run-metric' class='metric'>
+              <span class='mlabel'><img width='60' height='60' src="images/running.png"/></span>
+              <span class='mvalue'><a id='rm-anch' href='#huh'></a></span>
+            </div>
+            <div id='queue-metric' class='metric'>
+              <span class='mlabel'><img width='60' height='60' src="images/queued.png"></span>
+              <span class="mvalue"><a id='qm-anch' href='#huh'></a></span>
+            </div>
           </div>
         </div>
       </div>
       <div id="t2" class="content">
+        <div class='pmenu'>
+          <span id='jchoice'>All</span>
+        </div>
         <table align="center" id="jobs" class="tabl">
           <tr>
-            <th width="38%">ID</th>
+            <th width="38%">Package</th>
             <th width='15%'>Start</th>
             <th width="52%">Status</th>
           </tr>
         </table>
       </div>
       <div id="t3" class="content">
+        <div class='pmenu'>
+          <span id='rchoice'>All</span>
+        </div>
         <table align="center" id="report" class="tabl">
           <tr>
-            <th width="38%">ID</th>
+            <th width="38%">Package</th>
             <th width='15%'>Start</th>
             <th width="15%">End</th>
             <th width="22%">Status</th>
@@ -111,5 +129,8 @@
       </div>
     </div>
     <div id="dtabc"/>
-  </body>
+
+    </body>
+
+
 </html>

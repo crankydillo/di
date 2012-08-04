@@ -1,25 +1,64 @@
 $(document).ready(function(){
-    /*
-    $.get(
-        'http://localhost/di/services/batch/jobs?verbose=true'
-        , function(xml) {
-            $('.mai').append("<p>" + xml + "</p>");
-        }
-        , 'jsonp');
-        */
 
   var supported = ("WebSocket" in window);
   if(!supported) {
     var msg = "Your browser does not support Web Sockets. This example will not work properly.<br>";
     msg += "Please use a Web Browser with Web Sockets support (WebKit or Google Chrome).";
     $("#connect").html(msg);
-  }    
+  }   
+
+  establishMetrics();
 
   getJobs();
 
+  $("#succ-metric").click(function() {
+    showSuccess();
+  });
+  $("#fail-metric").click(function() {
+    showFail();
+  });
+  $("#run-metric").click(function() {
+    showRunning();
+  });
+  $("#queue-metric").click(function() {
+    showQueued();
+  });
+
+  $("#jchoice").contextMenu('jmenu'
+    , {
+      bindings: {
+                  'all': function(t) {
+                    $('#jchoice').html('All');
+                    filterRows('jobs', 'huh');
+                  } 
+                  , 'running': function(t) {
+                    showRunning();
+                  }
+                  , 'queued': function(t) {
+                    showQueued();
+                  }
+                }
+    });
+
+  $("#rchoice").contextMenu('rmenu'
+    , {
+      bindings: {
+                  'all': function(t) {
+                    $('#rchoice').html('All');
+                    filterRows('report', 'y'); // inefficient
+                  } 
+                  , 'successful': function(t) {
+                    showSuccess();
+                  }
+                  , 'failed': function(t) {
+                    showFail();
+                  }
+                }
+    });
+
     //addExistingJobs();
 
-    var client, destination;
+    var client, job_event_destination, job_summary_destination;
 
     $(window).unload(function() {
       console.log("Disconnecting");
@@ -29,33 +68,8 @@ $(document).ready(function(){
 
     var onconnect = function(frame) {
       console.log("connected to Stomp");
-      
-      client.subscribe(destination, function(message) {
-        var jobEvent = JSON.parse(message.body);
-        var jobId = jobEvent.jobEvent.jobId;
-        if ($('#' + jobId).length) {
-          if ("JOB_ENDED" === jobEvent.jobEvent.eventName)
-            removeJob(jobId);
-          else 
-            updateJob(jobEvent);
-        } else {
-          addJob(jobId, new Date(parseInt(jobEvent.jobEvent.timeStamp)), 
-              jobEvent.jobEvent.eventName);
-        }
-
-        var eventsId = jobEventsId(jobId);
-        console.log(eventsId);
-        var jobEvents = $('#' +  eventsId);
-        if (jobEvents.length) {
-          console.log("Adding job event");
-          jobEvents.append("<p class='event'>" + message.body + "</p>");
-        } else {
-          /*
-          events.append("<div id='" + eventsId + "' style='display: none'>" +
-              "<p class='event'>" + message.body + "</p></div>");
-              */
-        }
-      });
+      client.subscribe(job_summary_destination, processJobSummary);
+      client.subscribe(job_event_destination, processJobEvent);
     };
    
     var host = window.location.host; 
@@ -64,15 +78,43 @@ $(document).ready(function(){
     var url = 'ws://' + host + ':61614/stomp';
     var login = 'guest';
     var passcode = 'guest';
-    destination = '/topic/pervasive.job.event.topic1';
+    job_event_destination = '/topic/pervasive.job.event.topic1';
+    job_summary_destination = '/topic/di.job.summary.topic';
 
     client = Stomp.client(url);
     console.log("Connecting");
     client.connect(login, passcode, onconnect);
+
 });
 
-function removeJob(jobId) {
-  $('#' + jobId).remove();
+function showRunning() {
+  $("#tabs").tabs('select', "t2");
+  $('#jchoice').html('Running');
+  filterRows('jobs', 'JOB_QUEUED');
+}
+
+function showQueued() {
+  $("#tabs").tabs('select', "t2");
+  $('#jchoice').html('Queued');
+  filterNotRows('jobs', 'JOB_QUEUED');
+}
+
+function showSuccess() {
+  $("#tabs").tabs('select', "t3");
+  $('#rchoice').html('Successful');
+  filterRows('report', 'FINISHED_ERROR', 'ABORTED');
+}
+
+function showFail() {
+  $("#tabs").tabs('select', "t3");
+  $('#rchoice').html('Failed');
+  filterRows('report', 'FINISHED_OK');
+}
+ 
+
+function removeJob(job_id, start_date, end_date, statuss) {
+  $('#' + job_id).remove();
+  addLogRow(job_id, start_date, end_date, statuss, true);
   //$('#' + jobEventsId(jobId)).remove();
 }
 
@@ -97,6 +139,12 @@ function parseIsoToDate(str) {
   var time_without_millis = time_arr[0].substr(0, time_arr[0].length - 4);
   var to_parse = date_part + " " + time_without_millis + offset;
   return Date.parse(to_parse);
+}
+
+function establishMetrics() {
+  $.get('../di/services/mim'
+      , function(json) { setMetrics(json); }
+      , 'json');
 }
 
 function getJobs() {
@@ -127,20 +175,28 @@ function getJobs() {
           if (typeof end_date === "undefined") {
             addJob(job_id, start_date, statuss);
           } else {
-            addLogRow(job_id, start_date, end_date, statuss);
+            addLogRow(job_id, start_date, end_date, statuss, false);
           }
         });
         return xml 
       }, 'xml');
 }
 
-function addLogTab(jobId) {
-  addTab(
-      logTabId(jobId)
-      , "Log"
-      , getLog(jobId)
-      , "Log for " + jobId
-      );
+function addLogTab(jobId, statuss) {
+    var log = getLog(jobId);
+    var statusImg = "<img width='35' height='35' src='" + statusIcon(statuss) + "'/>";
+    var content = 
+        "<div>" + 
+        "<div style='font-size:18px; font-weight: bold;'>Log for " + jobId + "&nbsp;&nbsp;" + statusImg + "</div>" +
+        "<br/><br/>" + 
+        log + 
+        "</div>";
+
+    addTab(
+            logTabId(jobId)
+            , "Log"
+            , content
+          );
 }
 
 function logTabId(jobId) {
@@ -182,43 +238,81 @@ function addTab(tab_id, tab_title, content, header) {
   $("#tabs").tabs("add", "#" + tab_id, tab_title);
 }
 
-function addJob(jobId, startDate, eventName) {
+function addJob(jobId, startDate, eventName, statuss) {
     var intervalId = setInterval(function() {
         updateDuration(jobId);
     }, 1000);
     addJobRow(jobId, startDate, eventName, intervalId);
 }
 
-function addLogRow(jobId, startDate, endDate, status) {
+function addLogRow(jobId, startDate, endDate, statuss, prepend) {
   var id = "rep_" + jobId;
   var row = $(
-    "<tr>" +
+    "<tr class='r_" + statuss + "'>" +
       "<td><a href='#" + id + "'>" + jobId + "</td>" +
       "<td>" + formatTime(startDate) + "</td>" +
       "<td>" + formatTime(endDate) + "</td>" +
-      "<td>" + status + "</td>" +
+      "<td><img width='35' height='35' src='" + statusIcon(statuss) + "'/></td>" +
     "</tr>"
     ).click( function() {
-      addLogTab(jobId);
+      addLogTab(jobId, statuss);
       $("#tabs").tabs('select', logTabId(jobId));
     });
 
-  $('#report').append(row);
+  /*
+                    $('#jchoice').html('All');
+                    showQueuedRunning();
+                  } 
+                  , 'running': function(t) {
+                    $('#jchoice').html('Running');
+                    showRunning();
+                  }
+                  , 'queued': function(t) {
+                    $('#jchoice').html('Queued');
+                    showQueued();
+                  }
+                  */
+
+  if (prepend === true) {
+    $('#report').closest("tr").after(row);
+  } else {
+    $('#report').append(row);
+  }
 }
 
-function addJobRow(jobId, startDate, eventName, intervalId) {
+function statusIcon(statuss) {
+    // TODO What if we don't match...
+    var icon;
+    if (statuss === "FINISHED_OK") {
+        icon = "completed";
+    } else if (statuss === "FINISHED_ERROR" || statuss === "ABORTED") {
+        icon = "failed";
+    } else if (statuss === "RUNNING") {
+        icon = "running";
+    } else if (statuss === "QUEUED") {
+        icon = "queued";
+    }
+    return "images/" + icon + ".png";
+}
+
+function addJobRow(job_id, start_date, event_name, interval_id) {
   var row = $(
-      "<tr id=\"" + jobId + "\">" +
-      "<td>" + jobId + "</td>" +
-      "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
-      "<td id='status'>" + eventName + "</td>" +
+      "<tr id='" + job_id + "' class='r_" + event_name + "'>" +
+      "<td><a href='#blah'>" + job_id + "</td>" +
+      "<td id='" + interval_id + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
+      "<td id='status'>" + event_name + "</td>" +
       "</tr>"
     ).click( function() {
-      addJobTab(jobId);
-      $("#tabs").tabs('select', jobTabId(jobId));
+      addJobTab(job_id);
+      $("#tabs").tabs('select', jobTabId(job_id));
     });
 
   $('#jobs').append(row);
+  var filter = $("#jchoice").text();
+  if (filter === 'Running') {
+    row.hide();
+  }
+
 }
 
 function addJobTab(jobId) {
@@ -231,17 +325,25 @@ function jobTabId(jobId) {
   return "tj_" + jobId;
 }
 
-function updateJob(jobEvent) {
-    var jobId = jobEvent.jobEvent.jobId;
-    var eventName = jobEvent.jobEvent.eventName;
+function updateJob(job_event) {
+    var job_id = job_event.jobEvent.jobId;
+    var event_name = job_event.jobEvent.eventName;
     var statuss;
-    if (eventName == "PROCESS_STATUS")
-        statuss = "STEP: " + jobEvent.jobEvent.data.name;
+    if (event_name == "PROCESS_STATUS")
+        statuss = "STEP: " + job_event.jobEvent.data.name;
     else
-        statuss = eventName;
-    $('#' + jobId).find('#status').text(statuss);
-    if (eventName == "JOB_ENDED")
-        clearInterval($('#' + jobId).find("td")[3].id);
+        statuss = event_name;
+    $('#' + job_id).find('#status').text(statuss);
+
+    var filter = $("#jchoice").text();
+    if (filter === 'Running' || filter === 'All') {
+      $('#' + job_id).show();
+    } else {
+      $('#' + job_id).hide();
+    }
+
+    if (event_name == "JOB_ENDED")
+        clearInterval($('#' + job_id).find("td")[3].id);
 }
 
 function jobEventToRow(jobEvent, intervalId) {
@@ -264,6 +366,45 @@ function formatTime(date) {
 
     return pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + 
         pad2(date.getSeconds());
+}
+
+function filterRows() {
+  var table_id = arguments[0];
+  var outer_args = arguments;
+  $("#" + table_id + " tr").each(function(idx) {
+    if (idx !== 0) {
+      var row_status = $(this).attr('class').substring(2);  // prune r_
+      if (contains(outer_args, row_status)) {
+        $(this).hide();
+      } else {
+        $(this).show();
+      }
+    }
+  });
+}
+
+// TODO Replace this and filterRows with something that uses filter function
+function filterNotRows() {
+  var table_id = arguments[0];
+  var outer_args = arguments;
+  $("#" + table_id + " tr").each(function(idx) {
+    if (idx !== 0) {
+      var row_status = $(this).attr('class').substring(2);  // prune r_
+      if (!contains(outer_args, row_status)) {
+        $(this).hide();
+      } else {
+        $(this).show();
+      }
+    }
+  });
+}
+
+function contains(arr, obj) {
+  for (var i = 0; i < arr.length; i++) {
+    if (arr[i] === obj) 
+      return true;
+  }
+  return false;
 }
 
 
@@ -291,4 +432,53 @@ function updateDuration(jobId) {
     }
 
     inc("secs", "mins");
+}
+
+function processJobEvent(message) {
+  var job_event = JSON.parse(message.body);
+  var job_id = job_event.jobEvent.jobId;
+
+  function isEndEvent() {
+    return "JOB_ENDED" === job_event.jobEvent.eventName;
+  }
+
+  if ($('#' + job_id).length) {
+    if (isEndEvent()) {
+      removeJob(
+          job_id
+          , new Date(parseInt(job_event.jobEvent.data.execution_start_time)) // I'm cheating.  This is NOT the submission time
+          , new Date(parseInt(job_event.jobEvent.data.execution_end_time)) 
+          , job_event.jobEvent.data.job_status
+          );
+    } else {
+      updateJob(job_event);
+    }
+  } else if (!isEndEvent()) {
+    addJob(job_id
+        , new Date(parseInt(job_event.jobEvent.timeStamp))
+        , job_event.jobEvent.eventName
+        );
+  }
+
+  var events_id = jobEventsId(job_id);
+  console.log(events_id);
+  var job_events = $('#' +  events_id);
+  if (job_events.length) {
+    console.log("Adding job event");
+    job_events.append("<p class='event'>" + js_beautify(JSON.stringify(message.body, null, 2)) + "</p><hr>");
+  }
+}
+
+function processJobSummary(message) {
+  var job_summary = JSON.parse(message.body);
+  setMetrics(job_summary);
+}
+
+function setMetrics(job_summary) {
+  if (typeof job_summary === 'undefined')
+    return;
+  $('#cm-anch').text(job_summary.successful);
+  $('#fm-anch').text(job_summary.failed);
+  $('#rm-anch').text(job_summary.running);
+  $('#qm-anch').text(job_summary.queued);
 }

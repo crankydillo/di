@@ -100,6 +100,14 @@ td.pair {
   padding: 2px 25px 2px 25px;
 }
 
+.metrics {
+  padding-top: 25px;
+}
+
+.metric {
+  cursor: pointer;
+}
+
 .metrics-left {
   padding-left: 50px;
   width: 40%;
@@ -119,6 +127,11 @@ td.pair {
   padding: 25px 5px 25px 5px;
   */
   width: 100%;
+}
+
+.horiz-radio {
+  padding: 25px 50px;
+  text-align: right;
 }
 
 .mvalue {
@@ -197,6 +210,11 @@ table.tabl td {
     vertical-align:center;
 }
 
+.pmenu {
+  padding: 10px;
+  font-size: 22px;
+  text-decoration: underline;
+}
 
 p.event {
     padding-bottom: 3px;
