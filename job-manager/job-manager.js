@@ -66,10 +66,18 @@ $(document).ready(function(){
         client.disconnect();
     });
 
+    // I don't like this business.  Can we just spin off a function that will
+    // set the label.  Then again, how do we not do that too often?
+    var run_or_queued_jobs = [];
+
+    var proc_job_event_fn = function(message) {
+        processJobEvent(message, run_or_queued_jobs);
+    }
+
     var onconnect = function(frame) {
       console.log("connected to Stomp");
       client.subscribe(job_summary_destination, processJobSummary);
-      client.subscribe(job_event_destination, processJobEvent);
+      client.subscribe(job_event_destination, proc_job_event_fn);
     };
    
     var host = window.location.host; 
@@ -148,19 +156,14 @@ function establishMetrics() {
 }
 
 function getJobs() {
-  $.get('../di/services/batch/jobs?verbose=true&last=86400'
+  //$.get('../di/services/batch/jobs?verbose=true&last=86400'
+  $.get('../di/services/batch/jobs?verbose=true&last=' + (1 * 60 * 60) 
       , function(xml) { 
         var fst = 0;
         $('job', xml).each(function(i) {
           var job_href = $(this).attr("xlink:href");
           var job_id = job_href.split("/").pop();
 
-          /* Why doesn't this work?
-          var ths = $(this);
-          var f = function(field) { ths.find(field).text() }
-          var dt = function(field) { new Date(f(field)) }
-          */
-          
           var job_id = job_href.split("/").pop();
 
           var start_date = parseIsoToDate($(this).find("submissionDate").text());
@@ -171,29 +174,34 @@ function getJobs() {
             end_date = parseIsoToDate(maybe_end_date.text());
 
           var statuss = $(this).find("status").text();
-          
+
+          /*
+          var pkg_name = $(this).find("pkgName").text();
+          var pkg_ver = $(this).find("pkgVersion").text();
+          */
+
           if (typeof end_date === "undefined") {
+            if (statuss === 'QUEUED')
+                statuss = 'JOB_QUEUED';
             addJob(job_id, start_date, statuss);
           } else {
             addLogRow(job_id, start_date, end_date, statuss, false);
           }
         });
-        return xml 
       }, 'xml');
 }
 
-function addLogTab(jobId, statuss) {
-    var log = getLog(jobId);
+function addLogTab(job_id, statuss) {
     var statusImg = "<img width='35' height='35' src='" + statusIcon(statuss) + "'/>";
     var content = 
-        "<div>" + 
-        "<div style='font-size:18px; font-weight: bold;'>Log for " + jobId + "&nbsp;&nbsp;" + statusImg + "</div>" +
-        "<br/><br/>" + 
-        log + 
-        "</div>";
+        $("<div id='log_'" + job_id + "'>" + 
+            "<div style='font-size:18px; font-weight: bold;'>" + job_id + " Log&nbsp;&nbsp;" + statusImg + "</div>" +
+            "<br/><br/><p>Loading <img width='30' height='30' src='images/spinner.gif'/></p></div>");
+
+    attachLog(job_id, content);
 
     addTab(
-            logTabId(jobId)
+            logTabId(job_id)
             , "Log"
             , content
           );
@@ -204,19 +212,23 @@ function logTabId(jobId) {
 }
 
 // Retrieve the job log from the server
-function getLog(jobId) {
+// TODO Make this async
+function attachLog(job_id, content) {
   var res = null;
   $.ajax({
-    url: '../di/services/batch/jobs/' + jobId + '/log'
+    url: '../di/services/batch/jobs/' + job_id + '/log'
     , type: "get"
-    , async: false
+    //, async: false
+    , async: true
     , success: function(text) {
-      res = text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/><br/>$2');
+        content.children('p').remove();
+        content.append(
+            text.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br/><br/>$2')
+            );
     }, error: function(jqHXR, respCode, errorThrown) {
-      res = noLogLog();
+        content.append("Could not retrieve log.");
     }
   });
-  return res;
 }
 
 function noLogLog() {
@@ -238,46 +250,36 @@ function addTab(tab_id, tab_title, content, header) {
   $("#tabs").tabs("add", "#" + tab_id, tab_title);
 }
 
-function addJob(jobId, startDate, eventName, statuss) {
-    var intervalId = setInterval(function() {
-        updateDuration(jobId);
+function addJob(job_id, start_date, event_name, statuss) {
+    var interval_id = setInterval(function() {
+        updateDuration(job_id);
     }, 1000);
-    addJobRow(jobId, startDate, eventName, intervalId);
+    if ($('#' + job_id).length > 0)
+        return;
+    addJobRow(job_id, start_date, event_name, interval_id);
 }
 
-function addLogRow(jobId, startDate, endDate, statuss, prepend) {
-  var id = "rep_" + jobId;
+function addLogRow(job_id, start_date, end_date, statuss, prepend) {
+  var id = "rep_" + job_id;
   var row = $(
     "<tr class='r_" + statuss + "'>" +
-      "<td><a href='#" + id + "'>" + jobId + "</td>" +
-      "<td>" + formatTime(startDate) + "</td>" +
-      "<td>" + formatTime(endDate) + "</td>" +
+      "<td><a id='" + id + "' href='#blah'>" + 
+      "Loading <img width='30' height='30' src='images/spinner.gif'/></td>" +
+      "<td>" + formatTime(start_date) + "</td>" +
+      "<td>" + formatTime(end_date) + "</td>" +
       "<td><img width='35' height='35' src='" + statusIcon(statuss) + "'/></td>" +
     "</tr>"
     ).click( function() {
-      addLogTab(jobId, statuss);
-      $("#tabs").tabs('select', logTabId(jobId));
+      addLogTab(job_id, statuss);
+      $("#tabs").tabs('select', logTabId(job_id));
     });
-
-  /*
-                    $('#jchoice').html('All');
-                    showQueuedRunning();
-                  } 
-                  , 'running': function(t) {
-                    $('#jchoice').html('Running');
-                    showRunning();
-                  }
-                  , 'queued': function(t) {
-                    $('#jchoice').html('Queued');
-                    showQueued();
-                  }
-                  */
 
   if (prepend === true) {
     $('#report').closest("tr").after(row);
   } else {
     $('#report').append(row);
   }
+  packageLabel(job_id, id);
 }
 
 function statusIcon(statuss) {
@@ -296,9 +298,11 @@ function statusIcon(statuss) {
 }
 
 function addJobRow(job_id, start_date, event_name, interval_id) {
+    var id = 'jr_' + job_id;
   var row = $(
       "<tr id='" + job_id + "' class='r_" + event_name + "'>" +
-      "<td><a href='#blah'>" + job_id + "</td>" +
+      "<td><a id='" + id + "' href='#'" + id + ">" + 
+      "Loading <img width='30' height='30' src='images/spinner.gif'/></td>" +
       "<td id='" + interval_id + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
       "<td id='status'>" + event_name + "</td>" +
       "</tr>"
@@ -312,13 +316,39 @@ function addJobRow(job_id, start_date, event_name, interval_id) {
   if (filter === 'Running') {
     row.hide();
   }
-
+  packageLabel(job_id, id);
 }
 
-function addJobTab(jobId) {
-  var eventsId = jobEventsId(jobId);
-  var jobEvents = $("<div id='" + eventsId + "'/>");
-  addTab(jobTabId(jobId), "Job", jobEvents);
+function packageLabel(job_id, id) {
+  $.ajax({
+    url: '../di/services/batch/jobs/' + job_id + '/rtc'
+    , type: "get"
+    , success: function(json) {
+        $('#' + id).html(
+            json.runtimeConfig.packageName + " " + 
+            json.runtimeConfig.packageVersion
+            );
+    }, error: function(jqHXR, respCode, errorThrown) {
+    }
+  });
+}
+
+function addJobTab(job_id) {
+  var events_id = jobEventsId(job_id);
+  var wrapper = 
+    $("<div>" + 
+    "<div style='font-size:18px; font-weight: bold; width: 50%'>Events " +
+    "<div style='float: right'><img width='50' height='50' src='images/stop-sign.gif'/></float>" +
+    "</div>" +
+    "<br/><br/>" + 
+    "</div>");
+
+  var job_events = $("<div id='" + events_id + "'/>");
+Loading <img width='30' height='30' src='images/spinner.gif'/>
+  var content = wrapper.append(job_events);
+  addTab(jobTabId(job_id), "Job", content);
+
+  // TODO When the end event is received, convert the stop sign
 }
 
 function jobTabId(jobId) {
@@ -356,16 +386,6 @@ function jobEventToRow(jobEvent, intervalId) {
             "<td id='status'>" + jobEvent.jobEvent.eventName + "</td>" +
             "<td id='" + intervalId + "'><span id='hrs'>00</span>:<span id='mins'>00</span>:<span id='secs'>00</span></td>" +
             "</tr>"
-}
-
-function formatTime(date) {
-    function pad2(value) {
-        if (value < 10) return "0" + value;
-        else return value + "";
-    }
-
-    return pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + 
-        pad2(date.getSeconds());
 }
 
 function filterRows() {
@@ -407,43 +427,23 @@ function contains(arr, obj) {
   return false;
 }
 
-
-// chronograph helper thing
-function updateDuration(jobId) {
-
-    function inc(curr, next) {
-        var currSpan = $('#' + jobId).find('#' + curr);
-        var currSpanTxt = currSpan.text();
-        var curr = 0;
-        if (currSpanTxt.charAt(0) == '0')
-            curr = parseInt(currSpanTxt.substring(1));
-        else
-            curr = parseInt(currSpanTxt);
-        if (curr == 59) {
-            currSpan.text("00");
-            inc("mins", "hrs");
-        } else {
-            if (curr < 9) 
-                currSpan.text("0" + (curr + 1));
-            else {
-                currSpan.text(curr + 1 + "");
-            }
-        }
-    }
-
-    inc("secs", "mins");
-}
-
-function processJobEvent(message) {
+function processJobEvent(message, run_or_queued_jobs) {
+  // There are substantial hurdles with this.  Jobs can produce a huge amount of
+  // events. Javascript in the browser has gotten much faster, but I'm not sure
+  // that it's (yet) equipped to handle something like this.
   var job_event = JSON.parse(message.body);
   var job_id = job_event.jobEvent.jobId;
 
-  function isEndEvent() {
-    return "JOB_ENDED" === job_event.jobEvent.eventName;
-  }
+  var pkg_name = job_event.jobEvent.packageName;
+  var pkg_ver = job_event.jobEvent.packageVersion;
 
-  if ($('#' + job_id).length) {
-    if (isEndEvent()) {
+  var is_end_event = "JOB_ENDED" === job_event.jobEvent.eventName;
+
+  if (contains(run_or_queued_jobs, job_id)) {
+    //if ($('#' + job_id).length == 0) // we'll just throw it away...
+
+    if (is_end_event) {
+      run_or_queued_jobs.splice(run_or_queued_jobs.indexOf(job_id), 1);
       removeJob(
           job_id
           , new Date(parseInt(job_event.jobEvent.data.execution_start_time)) // I'm cheating.  This is NOT the submission time
@@ -453,8 +453,11 @@ function processJobEvent(message) {
     } else {
       updateJob(job_event);
     }
-  } else if (!isEndEvent()) {
-    addJob(job_id
+  } else if (!is_end_event) {
+      run_or_queued_jobs.push(job_id);
+      addJob(job_id
+        , pkg_name
+        , pkg_ver
         , new Date(parseInt(job_event.jobEvent.timeStamp))
         , job_event.jobEvent.eventName
         );
@@ -467,6 +470,22 @@ function processJobEvent(message) {
     console.log("Adding job event");
     job_events.append("<p class='event'>" + js_beautify(JSON.stringify(message.body, null, 2)) + "</p><hr>");
   }
+}
+
+// TODO Make this async
+function getPackageInfo(job_id) {
+  var pkg_info = { "name": job_id, "version": "" }
+  $.ajax({
+    url: '../di/services/batch/jobs/' + job_id + '/rtc'
+    , type: "get"
+    , async: false
+    , success: function(json) {
+      pkg_info.name = json.runtimeConfig.packageName;
+      pkg_info.version = json.runtimeConfig.packageVersion;
+    }, error: function(jqHXR, respCode, errorThrown) {
+    }
+  });
+  return pkg_info;
 }
 
 function processJobSummary(message) {

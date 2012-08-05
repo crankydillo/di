@@ -210,6 +210,15 @@ table.tabl td {
     vertical-align:center;
 }
 
+table.tabl th:first-child {
+    text-align: left;
+}
+
+table.tabl td:first-child {
+    text-align: left;
+}
+
+
 .pmenu {
   padding: 10px;
   font-size: 22px;
