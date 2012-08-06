@@ -77,7 +77,7 @@
       <ul class="menu">
         <li><a href="#t1">Overview</a></li>
         <li><a href="#t2">Manager</a></li>
-        <li><a href="#t3">Reports</a></li>
+        <li><a href="#t3">History</a></li>
       </ul>
       <div id="t1" class="content">
         <div class='metrics'>
@@ -110,7 +110,7 @@
         <table align="center" id="jobs" class="tabl">
           <tr>
             <th width="38%">Package</th>
-            <th width='15%'>Start</th>
+            <th width='15%'>Duration</th>
             <th width="52%">Status</th>
           </tr>
         </table>
@@ -120,7 +120,7 @@
           <span id='rchoice'>All</span>
         </div>
         <table align="center" id="report" class="tabl">
-          <tr>
+          <tr id='histheader'>
             <th width="38%">Package</th>
             <th width='15%'>Start</th>
             <th width="15%">End</th>
@@ -130,8 +130,8 @@
       </div>
     </div>
     <div id="dtabc"/>
-
+      <div id="abort-confirm" title="Confirm Abort">
+        <p><span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 20px 0;"></span>Are you sure?</p>
+      </div>
     </body>
-
-
 </html>

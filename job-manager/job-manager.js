@@ -1,5 +1,7 @@
 $(document).ready(function(){
 
+  $('#abort-confirm').hide();
+
   var supported = ("WebSocket" in window);
   if(!supported) {
     var msg = "Your browser does not support Web Sockets. This example will not work properly.<br>";
@@ -80,8 +82,8 @@ $(document).ready(function(){
       client.subscribe(job_event_destination, proc_job_event_fn);
     };
    
-    var host = window.location.host; 
-    //var host = "localhost"
+    //var host = window.location.host; 
+    var host = "localhost"
     console.log("host: " + host);
     var url = 'ws://' + host + ':61614/stomp';
     var login = 'guest';
@@ -157,7 +159,7 @@ function establishMetrics() {
 
 function getJobs() {
   //$.get('../di/services/batch/jobs?verbose=true&last=86400'
-  $.get('../di/services/batch/jobs?verbose=true&last=' + (1 * 60 * 60) 
+  $.get('../di/services/batch/jobs?verbose=true&last=' + (24 * 60 * 60) 
       , function(xml) { 
         var fst = 0;
         $('job', xml).each(function(i) {
@@ -214,7 +216,6 @@ function logTabId(jobId) {
 // Retrieve the job log from the server
 // TODO Make this async
 function attachLog(job_id, content) {
-  var res = null;
   $.ajax({
     url: '../di/services/batch/jobs/' + job_id + '/log'
     , type: "get"
@@ -275,7 +276,7 @@ function addLogRow(job_id, start_date, end_date, statuss, prepend) {
     });
 
   if (prepend === true) {
-    $('#report').closest("tr").after(row);
+    $('#histheader').after(row);
   } else {
     $('#report').append(row);
   }
@@ -338,13 +339,29 @@ function addJobTab(job_id) {
   var wrapper = 
     $("<div>" + 
     "<div style='font-size:18px; font-weight: bold; width: 50%'>Events " +
-    "<div style='float: right'><img width='50' height='50' src='images/stop-sign.gif'/></float>" +
+    "<div id='jt_'" + job_id + "' style='float: right; cursor: pointer;'>" +
+    "<img width='50' height='50' src='images/stop-sign.gif'/>" +
     "</div>" +
     "<br/><br/>" + 
-    "</div>");
+    "</div>").click(function() {
+      $( "#abort-confirm" ).dialog({
+        resizable: false
+        , height:140
+        , modal: true
+        , width: 'auto'
+        , height: 'auto'
+        , buttons: {
+          "Submit Abort": function() {
+            submitAbort(job_id);
+            $( this ).dialog( "close" );
+          }, Cancel: function() {
+            $( this ).dialog( "close" );
+          }
+        }
+      });
+    });
 
   var job_events = $("<div id='" + events_id + "'/>");
-Loading <img width='30' height='30' src='images/spinner.gif'/>
   var content = wrapper.append(job_events);
   addTab(jobTabId(job_id), "Job", content);
 
@@ -468,24 +485,17 @@ function processJobEvent(message, run_or_queued_jobs) {
   var job_events = $('#' +  events_id);
   if (job_events.length) {
     console.log("Adding job event");
-    job_events.append("<p class='event'>" + js_beautify(JSON.stringify(message.body, null, 2)) + "</p><hr>");
+    var job_event = JSON.parse(message.body);
+   // if (typeof job_event.jobEvent.timeStamp === 'Number') {
+      job_event.jobEvent.date = new Date(job_event.jobEvent.timeStamp).toLocaleString();
+   // }
+    job_events.append("<p class='event'><pre>" + 
+        js_beautify(
+          //message.body
+          JSON.stringify(job_event, null, 2)
+          ) +
+        "</pre></p><hr>");
   }
-}
-
-// TODO Make this async
-function getPackageInfo(job_id) {
-  var pkg_info = { "name": job_id, "version": "" }
-  $.ajax({
-    url: '../di/services/batch/jobs/' + job_id + '/rtc'
-    , type: "get"
-    , async: false
-    , success: function(json) {
-      pkg_info.name = json.runtimeConfig.packageName;
-      pkg_info.version = json.runtimeConfig.packageVersion;
-    }, error: function(jqHXR, respCode, errorThrown) {
-    }
-  });
-  return pkg_info;
 }
 
 function processJobSummary(message) {
@@ -501,3 +511,16 @@ function setMetrics(job_summary) {
   $('#rm-anch').text(job_summary.running);
   $('#qm-anch').text(job_summary.queued);
 }
+
+function submitAbort(job_id) {
+  $.ajax({
+    url: '../di/services/batch/jobs/' + job_id
+    , type: "delete"
+    , async: true
+    , error: function(jqHXR, respCode, errorThrown) {
+      alert("There was a problem with the abort!");
+    }
+  });
+}
+
+
