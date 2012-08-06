@@ -251,7 +251,7 @@ function addTab(tab_id, tab_title, content, header) {
   $("#tabs").tabs("add", "#" + tab_id, tab_title);
 }
 
-function addJob(job_id, start_date, event_name, statuss) {
+function addJob(job_id, start_date, event_name) {
     var interval_id = setInterval(function() {
         updateDuration(job_id);
     }, 1000);
@@ -299,7 +299,7 @@ function statusIcon(statuss) {
 }
 
 function addJobRow(job_id, start_date, event_name, interval_id) {
-    var id = 'jr_' + job_id;
+    var id = jobRowId(job_id);
   var row = $(
       "<tr id='" + job_id + "' class='r_" + event_name + "'>" +
       "<td><a id='" + id + "' href='#'" + id + ">" + 
@@ -325,25 +325,35 @@ function packageLabel(job_id, id) {
     url: '../di/services/batch/jobs/' + job_id + '/rtc'
     , type: "get"
     , success: function(json) {
-        $('#' + id).html(
-            json.runtimeConfig.packageName + " " + 
-            json.runtimeConfig.packageVersion
-            );
+      $('#' + id).html(
+        json.runtimeConfig.packageName + " " + 
+        json.runtimeConfig.packageVersion
+        );
     }, error: function(jqHXR, respCode, errorThrown) {
     }
   });
 }
 
+function jobTabSpinnerId(job_id) {
+  return 'jrt-sp-' + job_id;
+}
+
+function removeJobTabSpinner(job_id) {
+  var job_tab_spinner = $('#' + jobTabSpinnerId(job_id));
+  if (job_tab_spinner.length !== 0)
+    job_tab_spinner.html("<span>&nbsp;&nbsp</span>");
+  // TODO Replace &nbsp with blank img or whatever that reliably replaces the spinner
+}
+
 function addJobTab(job_id) {
+  var title_id = 'et_' + job_id;
   var events_id = jobEventsId(job_id);
-  var wrapper = 
-    $("<div>" + 
-    "<div style='font-size:18px; font-weight: bold; width: 50%'>Events " +
-    "<div id='jt_'" + job_id + "' style='float: right; cursor: pointer;'>" +
-    "<img width='50' height='50' src='images/stop-sign.gif'/>" +
-    "</div>" +
-    "<br/><br/>" + 
-    "</div>").click(function() {
+
+  var stop_button = 
+    $("<div id='jt_'" + job_id + "'>" +
+        "<img style='cursor: pointer;' width='42' height='42' src='images/stop-sign.gif'/>" +
+        "</div>"
+     ).click(function() {
       $( "#abort-confirm" ).dialog({
         resizable: false
         , height:140
@@ -361,11 +371,40 @@ function addJobTab(job_id) {
       });
     });
 
+  var content_title = 
+    $("<div style='width=50%; font-size:18px; font-weight: bold'>" +
+    "<span id='" + title_id + "' style=''>" +
+    "Loading <img width='30' height='30' src='images/spinner.gif'/>" +
+    "</span>&nbsp;<span>Events&nbsp</span>" +
+    "</div>"
+     );
+
+  var tab_title = "Job&nbsp;" + 
+    "<span id='" + jobTabSpinnerId(job_id) +
+    "'><img width='30' height='30' src='images/spinner.gif'/></span>";
+
+  var wrapper = 
+    $("<div/>")
+    .append(content_title)
+    .append($('<br/>'))
+    .append(stop_button)
+    .append($('<br/>'));
+
   var job_events = $("<div id='" + events_id + "'/>");
   var content = wrapper.append(job_events);
-  addTab(jobTabId(job_id), "Job", content);
+  addTab(jobTabId(job_id), tab_title, content);
 
+  var job_row = $('#' + jobRowId(job_id));
+  if (job_row.children('img').length === 0) {
+    $('#' + title_id).html(job_row.html());
+  } else {
+    packageLabel(job_id, title_id);
+  }
   // TODO When the end event is received, convert the stop sign
+}
+
+function jobRowId(job_id) {
+  return 'jr_' + job_id;
 }
 
 function jobTabId(jobId) {
@@ -451,16 +490,12 @@ function processJobEvent(message, run_or_queued_jobs) {
   var job_event = JSON.parse(message.body);
   var job_id = job_event.jobEvent.jobId;
 
-  var pkg_name = job_event.jobEvent.packageName;
-  var pkg_ver = job_event.jobEvent.packageVersion;
-
   var is_end_event = "JOB_ENDED" === job_event.jobEvent.eventName;
 
   if (contains(run_or_queued_jobs, job_id)) {
-    //if ($('#' + job_id).length == 0) // we'll just throw it away...
-
     if (is_end_event) {
       run_or_queued_jobs.splice(run_or_queued_jobs.indexOf(job_id), 1);
+      removeJobTabSpinner(job_id);
       removeJob(
           job_id
           , new Date(parseInt(job_event.jobEvent.data.execution_start_time)) // I'm cheating.  This is NOT the submission time
@@ -473,28 +508,20 @@ function processJobEvent(message, run_or_queued_jobs) {
   } else if (!is_end_event) {
       run_or_queued_jobs.push(job_id);
       addJob(job_id
-        , pkg_name
-        , pkg_ver
         , new Date(parseInt(job_event.jobEvent.timeStamp))
         , job_event.jobEvent.eventName
         );
   }
 
   var events_id = jobEventsId(job_id);
-  console.log(events_id);
   var job_events = $('#' +  events_id);
   if (job_events.length) {
-    console.log("Adding job event");
     var job_event = JSON.parse(message.body);
-   // if (typeof job_event.jobEvent.timeStamp === 'Number') {
-      job_event.jobEvent.date = new Date(job_event.jobEvent.timeStamp).toLocaleString();
-   // }
+    job_event.jobEvent.date = new Date(job_event.jobEvent.timeStamp).toLocaleString();
     job_events.append("<p class='event'><pre>" + 
-        js_beautify(
-          //message.body
-          JSON.stringify(job_event, null, 2)
-          ) +
-        "</pre></p><hr>");
+        js_beautify(JSON.stringify(job_event, null, 2)) +
+        "</pre></p><hr>"
+        );
   }
 }
 
@@ -522,5 +549,3 @@ function submitAbort(job_id) {
     }
   });
 }
-
-
