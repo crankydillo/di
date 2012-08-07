@@ -159,7 +159,7 @@ function establishMetrics() {
 
 function getJobs() {
   //$.get('../di/services/batch/jobs?verbose=true&last=86400'
-  $.get('../di/services/batch/jobs?verbose=true&last=' + (24 * 60 * 60) 
+  $.get('../di/services/batch/jobs?verbose=true&last=' + (8 * 60 * 60) 
       , function(xml) { 
         var fst = 0;
         $('job', xml).each(function(i) {
