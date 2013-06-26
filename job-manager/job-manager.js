@@ -1,3 +1,5 @@
+var url_base = "http://localhost";
+
 $(document).ready(function(){
 
   $('#abort-confirm').hide();
@@ -78,8 +80,19 @@ $(document).ready(function(){
 
     var onconnect = function(frame) {
       console.log("connected to Stomp");
+
+      client.send("/topic/stomp.websocket.keepalive");
+      setInterval(
+        function() {
+            client.send("/topic/stomp.websocket.keepalive");
+        }, 2 * 60 * 1000
+      );
+
       client.subscribe(job_summary_destination, processJobSummary);
       client.subscribe(job_event_destination, proc_job_event_fn);
+      client.heartbeat.outgoing = 20000;
+      client.heartbeat.incoming = 0;
+
     };
    
     //var host = window.location.host; 
@@ -88,8 +101,8 @@ $(document).ready(function(){
     var url = 'ws://' + host + ':61614/stomp';
     var login = 'guest';
     var passcode = 'guest';
-    job_event_destination = '/topic/pervasive.job.event.topic1';
-    job_summary_destination = '/topic/di.job.summary.topic';
+    job_event_destination = '/topic/job.topic';
+    job_summary_destination = '/topic/summary.topic';
 
     client = Stomp.client(url);
     console.log("Connecting");
@@ -152,14 +165,15 @@ function parseIsoToDate(str) {
 }
 
 function establishMetrics() {
-  $.get('../di/services/mim'
-      , function(json) { setMetrics(json); }
-      , 'json');
+  var oneDayAgo = new Date(new Date() - 0);//24 * 60 * 60 * 1000);
+  $.get(url_base + '/di/services/batch/jobs/overview?period=HOUR&since=' +
+          oneDayAgo.toISOString()
+      , function(xml) { setMetrics(xml); }
+      , 'xml');
 }
 
 function getJobs() {
-  //$.get('../di/services/batch/jobs?verbose=true&last=86400'
-  $.get('../di/services/batch/jobs?verbose=true&last=' + (8 * 60 * 60) 
+  $.get(url_base + '/di/services/batch/jobs?verbose=true&last=' + 0//(8 * 60 * 60) 
       , function(xml) { 
         var fst = 0;
         $('job', xml).each(function(i) {
@@ -217,7 +231,7 @@ function logTabId(jobId) {
 // TODO Make this async
 function attachLog(job_id, content) {
   $.ajax({
-    url: '../di/services/batch/jobs/' + job_id + '/log'
+    url: url_base + '/di/services/batch/jobs/' + job_id + '/log'
     , type: "get"
     //, async: false
     , async: true
@@ -322,7 +336,7 @@ function addJobRow(job_id, start_date, event_name, interval_id) {
 
 function packageLabel(job_id, id) {
   $.ajax({
-    url: '../di/services/batch/jobs/' + job_id + '/rtc'
+    url: url_base + '/di/services/batch/jobs/' + job_id + '/rtc'
     , type: "get"
     , success: function(json) {
       $('#' + id).html(
@@ -533,15 +547,21 @@ function processJobSummary(message) {
 function setMetrics(job_summary) {
   if (typeof job_summary === 'undefined')
     return;
-  $('#cm-anch').text(job_summary.successful);
-  $('#fm-anch').text(job_summary.failed);
-  $('#rm-anch').text(job_summary.running);
-  $('#qm-anch').text(job_summary.queued);
+
+  var summary_elem = $(job_summary).find("summary");
+  
+  function extract(name) {
+      return $(summary_elem).find(name).text();
+  }
+  $('#cm-anch').text(extract("successful"));
+  $('#fm-anch').text(extract("failed"));
+  $('#rm-anch').text(extract("currentlyRunning"));
+  $('#qm-anch').text(extract("currentlyQueued"));
 }
 
 function submitAbort(job_id) {
   $.ajax({
-    url: '../di/services/batch/jobs/' + job_id
+    url: url_base + '/di/services/batch/jobs/' + job_id
     , type: "delete"
     , async: true
     , error: function(jqHXR, respCode, errorThrown) {
